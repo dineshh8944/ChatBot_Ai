@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import DoraemonRobot from "./DoraemonRobot";
 
-const API_URL = "http://localhost:8000";
+// Vite bakes this into the production bundle, so set VITE_API_URL in Render
+// before deploying. Keep localhost as the development fallback.
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? "https://ai-chatbot-7mox.onrender.com"
+    : "http://localhost:8000")
+).replace(/\/$/, "");
 
 function prefersReducedMotion() {
   return (
@@ -31,7 +38,7 @@ async function getReply(text, sessionId) {
       body: JSON.stringify({ session_id: sessionId, message: text }),
     });
   } catch {
-    throw new Error("Cannot reach the backend. Start it on port 8000.");
+    throw new Error(`Cannot reach the backend at ${API_URL}.`);
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -119,11 +126,7 @@ function Stage({ messages, loading, error, onTyped }) {
           <i />
           <i />
         </span>
-        {slow && (
-          <span className="hint">
-            Thinking... generating response.
-          </span>
-        )}
+        {slow && <span className="hint">Thinking... generating response.</span>}
       </>
     );
   } else if (reply) {
@@ -170,12 +173,15 @@ export default function App() {
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
 
-  // Load saved history from MongoDB on first load
+  // Load saved history on first load
   useEffect(() => {
     fetch(`${API_URL}/history/${sessionId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("History request failed");
+        return r.json();
+      })
       .then((data) => setMessages(data))
-      .catch(() => setError("Cannot reach the backend. Start it on port 8000."));
+      .catch(() => setError(`Cannot reach the backend at ${API_URL}.`));
   }, [sessionId]);
 
   useEffect(() => {
@@ -192,10 +198,6 @@ export default function App() {
     e.preventDefault();
     const text = input.trim();
     if (!text || loading) return;
-
-    const history = [...messages, { role: "user", content: text }]
-      .slice(-20)
-      .map(({ role, content }) => ({ role, content }));
 
     setError("");
     setInput("");
