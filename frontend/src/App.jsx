@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import DoraemonRobot from "./DoraemonRobot";
 
-const API_URL = "http://localhost:8000";
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 function prefersReducedMotion() {
   return (
@@ -31,7 +31,7 @@ async function getReply(text, sessionId) {
       body: JSON.stringify({ session_id: sessionId, message: text }),
     });
   } catch {
-    throw new Error("Cannot reach the backend. Start it on port 8000.");
+    throw new Error(`Cannot reach the backend at ${API_URL}.`);
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -119,11 +119,7 @@ function Stage({ messages, loading, error, onTyped }) {
           <i />
           <i />
         </span>
-        {slow && (
-          <span className="hint">
-            Thinking... generating response.
-          </span>
-        )}
+        {slow && <span className="hint">Thinking... generating response.</span>}
       </>
     );
   } else if (reply) {
@@ -175,7 +171,7 @@ export default function App() {
     fetch(`${API_URL}/history/${sessionId}`)
       .then((r) => r.json())
       .then((data) => setMessages(data))
-      .catch(() => setError("Cannot reach the backend. Start it on port 8000."));
+      .catch(() => setError(`Cannot reach the backend at ${API_URL}.`));
   }, [sessionId]);
 
   useEffect(() => {
